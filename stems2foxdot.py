@@ -4,8 +4,11 @@ from pydub import AudioSegment
 from pydub import silence
 import math
 import json
+import array
+import numpy as np
 
-loop_dir = '/home/meggleton/.local/lib/python2.7/site-packages/FoxDot/snd/_loop_/'  # Path where the videos are located
+
+loop_dir = '/home/meggleton/.local/lib/python3.6/site-packages/FoxDot/snd/_loop_/'  # Path where the videos are located
 
 stem_name = "Bullet"
 stem_dir = loop_dir + stem_name
@@ -59,7 +62,9 @@ for stemfile in samplesdata:
         else:
             os.mkdir(foldername)
 
-    i = 1
+    i = 0
+    samples = []
+
     for sound in samplesdata[stemfile]:
         #print(sound[0], 1.0*sound[0]/beat,sound[1], 1.0*sound[1]/beat)
         start_b = int(math.floor(1.0*sound[0]/beat))
@@ -71,8 +76,8 @@ for stemfile in samplesdata:
 
 
         if (makesamples):
-            print("Making sample "+str(i)+"/"+str(len(samplesdata[stemfile])))
-            filename = foldername + "/"+foldername.lower()+'_{0:03d}'.format(i) + ".wav"
+            print("Making sample "+str(i+1)+"/"+str(len(samplesdata[stemfile])))
+            filename = foldername + "/"+'{0:03d}_'.format(i)+foldername.lower() + ".wav"
             awesome = stem[start_i:end_i]
             pad = 0
             if(dur_b % barlength == 0):
@@ -83,14 +88,30 @@ for stemfile in samplesdata:
                 pad_silence = AudioSegment.silent(duration=(pad*beat), frame_rate =awesome.frame_rate)
                 out = awesome.append(pad_silence)
 
+            samparr = hash(tuple(out.get_array_of_samples()))
+            shifted_samples = hash(tuple(np.right_shift(out.get_array_of_samples(), 1)))
 
-            out.export(filename, format="wav")
+            dup = False
+            if(samparr in samples):
+                dup = True
+            else:
+                if(samparr in samples):
+                    dup = True
 
-            line = instrument+" >> loop('"+stem_name+"/"+foldername+"', sample="+str(i)+", dur="+str(dur_b+pad)+") # "+str(dur_b) +" beats @ "+str(start_b)+"\n\n" #Bass
-            foxdot += line
 
+            if(dup):
+                print("duplicate found")
+            else :
+                print(len(out))
+                out.export(filename, format="wav")
+                line = instrument+" >> loop('"+stem_name+"/"+foldername+"', sample="+str(i)+", dur="+str(dur_b+pad)+") # "+str(dur_b) +" beats @ "+str(start_b)+"\n\n" #Bass
+                foxdot += line
+                i += 1
+                samples.append(samparr)
 
-        i += 1
+                samples.append(shifted_samples)
+                
+
     s += 1
 
 foxfile = open("foxdot.py", "w")
