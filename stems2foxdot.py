@@ -6,20 +6,42 @@ import math
 import json
 import array
 import numpy as np
+import statistics
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Create Samples From a Folder of Stems.')
+parser.add_argument('path', metavar='PATH', type=str,
+                    help='Path to stems folder')
+
+parser.add_argument('-b','--bpm', type=int, nargs='?', default=110,
+                    help='BPM of stems')
+
+parser.add_argument('-g','--gaplength',  type=int, nargs='?', default=2,
+                    help='Number of beats silence to detect as a gap between samples')
+
+parser.add_argument('-r','--barlength', type=int, nargs='?', default=4,
+                    help='Number of beats per bar')
+
+parser.add_argument('-l','--limit', type=int, nargs='?', default=-32,
+                    help='Decibel limit of silence')
 
 
-loop_dir = '/home/meggleton/.local/lib/python3.6/site-packages/FoxDot/snd/_loop_/'  # Path where the videos are located
+args = parser.parse_args()
 
-stem_name = "Bullet"
-stem_dir = loop_dir + stem_name
+
+stem_dir = os.path.abspath(args.path) #'/home/meggleton/.local/lib/python3.6/site-packages/FoxDot/snd/_loop_/'  # Path where the videos are located
+
+stem_name = os.path.basename(args.path)
+#stem_dir = loop_dir + stem_name
 
 os.chdir(stem_dir)
 
-bpm = 110
+bpm = args.bpm
 beat = 1000 * 60 / bpm
-gaplength = 2
-barlength = 4
-limit=-32
+gaplength = args.gaplength
+barlength = args.barlength
+limit=args.limit
 makesamples = True
 
 cachefile = "cache"+str(limit)+"-"+str(gaplength)+".json"
@@ -43,7 +65,12 @@ else:
     f.write(content)
     f.close()
 
-foxdot = "Clock.bpm = "+str(bpm)+"\n\n"
+foxdot = '''##################################################################################
+# Created with stems2foxdot by stretch
+# From '''+stem_name+'''
+# ©  with Permission
+###################################################################################
+'''+"Samples.addPath(\""+stem_dir+"\")\nClock.bpm = "+str(bpm)+"\n\n"
 
 s = 1
 for stemfile in samplesdata:
@@ -66,14 +93,14 @@ for stemfile in samplesdata:
     samples = []
 
     for sound in samplesdata[stemfile]:
-        #print(sound[0], 1.0*sound[0]/beat,sound[1], 1.0*sound[1]/beat)
         start_b = int(math.floor(1.0*sound[0]/beat))
-        end_b = int(math.ceil(1.0*sound[1]/beat))
+        end_b = int(1 + math.ceil(1.0*sound[1]/beat))
         dur_b = end_b-start_b
 
-        start_i = int(math.floor(1.0*sound[0]/beat)*beat)
-        end_i = int(math.ceil(1.0*sound[1]/beat)*beat)
+        start_i = int(start_b*beat)
+        end_i = int(end_b*beat)
 
+        print(start_b, end_b, dur_b, start_i, end_i)
 
         if (makesamples):
             print("Making sample "+str(i+1)+"/"+str(len(samplesdata[stemfile])))
@@ -104,16 +131,24 @@ for stemfile in samplesdata:
             else :
                 print(len(out))
                 out.export(filename, format="wav")
-                line = instrument+" >> loop('"+stem_name+"/"+foldername+"', sample="+str(i)+", dur="+str(dur_b+pad)+") # "+str(dur_b) +" beats @ "+str(start_b)+"\n\n" #Bass
+                line = instrument+" >> loop('"+foldername+"', sample="+str(i)+", dur="+str(dur_b+pad)+") # "+str(dur_b) +" beats @ "+str(start_b)+"\n\n" #Bass
                 foxdot += line
                 i += 1
                 samples.append(samparr)
 
                 samples.append(shifted_samples)
-                
+
+    foxdot += ""+instrument+".stop()\n\n"
 
     s += 1
 
-foxfile = open("foxdot.py", "w")
+foxfilename = stem_name+".py"
+print(foxfilename)
+foxfile = open(foxfilename, "w")
+foxfile.write(foxdot)
+foxfile.close()
+
+foxfilename = "../../"+stem_name+".py"
+foxfile = open(foxfilename, "w")
 foxfile.write(foxdot)
 foxfile.close()
